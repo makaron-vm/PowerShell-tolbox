@@ -1,12 +1,12 @@
 <#
 .Synopsis
-    Set calendar sharing permission in mailboxes where default sharing permission is different than $Sharing_Policy 
+    Set calendar sharing permission in mailboxes where default sharing permission is different than $Sharing_Policy
     The script is provided “AS IS” with no guarantees, no warranties, and they confer no rights.
 
 .DESCRIPTION
 
 
-.NOTES   
+.NOTES
     Author: Michal Ziemba
     File Name: Set-CalendarSharingPolicy.ps1
     Version: 1.0.0, DateUpdated: 2017-03-22
@@ -24,7 +24,7 @@
     #Prefix to search for
     function Connect-ExchangeOnline {
     param (
-        $Creds
+        [System.Management.Automation.PSCredential]$Creds
     )
         #Clean up existing PowerShell Sessions
         Get-PSSession | Remove-PSSession
@@ -32,6 +32,7 @@
         $Session = New-PSSession –ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Credentials -Authentication Basic -AllowRedirection
         Import-PSSession -Session $Session  -DisableNameChecking:$true -AllowClobber:$true  | Out-Null
     }
+
     Connect-ExchangeOnline -Creds $Credentials
     $VerbosePreference='Continue'
 
@@ -44,16 +45,16 @@
  - CalendarSharingFreeBusyReviewer   Share free/busy hours, subject, location, and the body of the message or calendar item.
  - ContactsSharing   Share contacts only.
 #>
-switch (((Get-SharingPolicy).domains|? {$_ -match '\*'}) -replace "\*:","")
+switch (((Get-SharingPolicy).domains|Where-Object {$_ -match '\*'}) -replace "\*:","")
 {
 
 # The following roles apply specifically to calendar folders:
 # AvailabilityOnly - View only availability data
 # LimitedDetails   - View availability data with subject and location
 
-    'CalendarSharingFreeBusyDetail' 
-        {$Sharing_Policy = "LimitedDetails"} 
-    Default 
+    'CalendarSharingFreeBusyDetail'
+        {$Sharing_Policy = "LimitedDetails"}
+    Default
         {$Sharing_Policy = "AvailabilityOnly"}
 }
 
@@ -62,15 +63,15 @@ $mailboxes = get-mailbox -ResultSize unlimited
 foreach ($mailbox in $mailboxes){
     Try
     {
-        $calendar = (Get-MailboxFolderStatistics $mailbox.UserPrincipalName -FolderScope calendar |select -First 1).Identity.Replace("\",":\") 
+        $calendar = (Get-MailboxFolderStatistics $mailbox.UserPrincipalName -FolderScope calendar | Select-Object -First 1).Identity.Replace("\",":\")
         Try
         {
-            $calendar_permission = $calendar|Get-MailboxFolderPermission -user Default 
+            $calendar_permission = $calendar|Get-MailboxFolderPermission -user Default
         }
         catch
         {
             Write-Output "Couldn't find a default user permision for the calendar :$($calendar)`n$($_.Exception.Message)"
-        }       
+        }
         if ($calendar_permission.AccessRights -ne $Sharing_Policy)
         {
             try
@@ -78,7 +79,7 @@ foreach ($mailbox in $mailboxes){
                 Set-MailboxFolderPermission -Identity $calendar -User Default -AccessRights $Sharing_Policy -WarningAction stop -WhatIf
                 Write-Output "Set the default calendar permission for $($mailbox.userprincipalname)"
             }
-            catch 
+            catch
             {
                 Write-Output "Failed to set the default calendar permission for $($mailbox.userprincipalname)`n$($_.Exception.Message)"
             }
@@ -87,7 +88,7 @@ foreach ($mailbox in $mailboxes){
     Catch
     {
         Write-Output "Couldn't finnd a calendar for mailbox:$($mailbox.userprincipalname)`n$($_.Exception.Message)"
-    }   
-    
-} 
+    }
+
+}
 
